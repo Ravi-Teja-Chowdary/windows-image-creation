@@ -3,7 +3,7 @@ on: [push]
 
 jobs:
   build:
-    runs-on: windows-2019 # Stick to 2019 to match your 1809 base image requirements
+    runs-on: windows-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
