@@ -35,7 +35,7 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile "MSOffice.zip"
           
           Write-Host "Extracting files..."
-          Expand-Archive -Path "MSOffice.zip" -DestinationPath "./excel_files"
+          Expand-Archive -Path "MSOffice.zip" -DestinationPath "./MSOffice"
           
           Write-Host "Deleting zip to save space..."
           Remove-Item "MSOffice.zip"
