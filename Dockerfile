@@ -1,5 +1,4 @@
-# Use Windows Server Core with GUI support
-FROM mcr.microsoft.com/windows:1809
+FROM mcr.microsoft.com/windows/servercore:ltsc2019
 
 # Copy Office setup and scripts
 WORKDIR /install
