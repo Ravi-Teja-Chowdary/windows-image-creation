@@ -3,24 +3,41 @@ on: [push]
 
 jobs:
   build:
-    runs-on: windows-latest # Newer runners usually provision faster
+    runs-on: windows-2019 # Stick to 2019 to match your 1809 base image requirements
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      - name: Free Disk Space
+        shell: powershell
+        run: |
+          Write-Host "Reclaiming disk space on runner..."
+          # Remove heavy pre-installed tools to make room for Windows Docker layers
+          $paths = @(
+            "C:\Microsoft\AndroidSDK",
+            "C:\usr\local\share\boost",
+            "C:\HostedToolcache\windows\CodeQL",
+            "C:\HostedToolcache\windows\Ruby"
+          )
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              Write-Host "Removing $path..."
+              Remove-Item -Recurse -Force $path -ErrorAction SilentlyContinue
+            }
+          }
+          Write-Host "Disk cleanup complete."
+
       - name: Download Office Files
         shell: powershell
         run: |
-          # Your Public S3 URL
           $url = "https://msoffice-bucket.s3.us-east-1.amazonaws.com/MSOffice.zip"
-          
-          Write-Host "Downloading MSOffice.zip from S3..."
+          Write-Host "Downloading MSOffice.zip..."
           Invoke-WebRequest -Uri $url -OutFile "MSOffice.zip"
           
           Write-Host "Extracting files..."
           Expand-Archive -Path "MSOffice.zip" -DestinationPath "./excel_files"
           
-          # Clean up zip to ensure enough disk space for the Docker build
+          Write-Host "Deleting zip to save space..."
           Remove-Item "MSOffice.zip"
 
       - name: Switch Docker to Windows Containers
@@ -28,10 +45,9 @@ jobs:
         run: |
           $dockerPath = "C:\Program Files\Docker\Docker\DockerCli.exe"
           if (Test-Path $dockerPath) {
-              Write-Host "Found DockerCli, switching engine..."
               & $dockerPath -SwitchWindowsEngine
           } else {
-              Write-Host "DockerCli.exe not found at standard path. Checking current engine mode..."
+              Write-Host "Checking current engine..."
               docker info -f '{{.OSType}}'
           }
 
@@ -44,9 +60,8 @@ jobs:
       - name: Build and Push Image
         shell: powershell
         run: |
-          # Build the image
-          # Note: This will take a while as it pulls large Windows base layers
+          # The build will now have ~5GB of extra headroom
           docker build -t ravitejachowdarysidhi/excel-dcom-base:latest .
           
-          # Push the image
+          Write-Host "Pushing image to Docker Hub..."
           docker push ravitejachowdarysidhi/excel-dcom-base:latest
