@@ -8,23 +8,28 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Free Disk Space
+      - name: Reclaim Disk Space
         shell: powershell
         run: |
-          Write-Host "Reclaiming disk space..."
-          $paths = @("C:\Microsoft\AndroidSDK", "C:\usr\local\share\boost", "C:\HostedToolcache\windows\CodeQL")
-          foreach ($path in $paths) {
-            if (Test-Path $path) { Remove-Item -Recurse -Force $path -ErrorAction SilentlyContinue }
-          }
+          Write-Host "Clearing space for Docker layers..."
+          Remove-Item -Recurse -Force "C:\Microsoft\AndroidSDK" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\usr\local\share\boost" -ErrorAction SilentlyContinue
 
       - name: Download Office Files
         shell: powershell
         run: |
           $url = "https://msoffice-bucket.s3.us-east-1.amazonaws.com/MSOffice.zip"
           Invoke-WebRequest -Uri $url -OutFile "MSOffice.zip"
-          # Extract into a specific folder named MSOffice
-          Expand-Archive -Path "MSOffice.zip" -DestinationPath "./MSOffice" -Force
+          Expand-Archive -Path "MSOffice.zip" -DestinationPath "./MSOffice"
           Remove-Item "MSOffice.zip"
+
+      - name: Switch to Windows Containers
+        shell: powershell
+        run: |
+          $dockerMode = docker info -f '{{.OSType}}'
+          if ($dockerMode -ne "windows") {
+            & "C:\Program Files\Docker\Docker\DockerCli.exe" -SwitchWindowsEngine
+          }
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -32,11 +37,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push Image
+      - name: Build and Push
         shell: powershell
         run: |
-          # Build the image using the context of the current directory
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/excel-dcom-base:latest .
-          
-          Write-Host "Pushing image to Docker Hub..."
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/excel-dcom-base:latest
+          # --progress=plain is CRITICAL to see the logs from inside the Dockerfile
+          docker build --progress=plain -t ravitejachowdarysidhi/excel-dcom-base:latest .
+          docker push ravitejachowdarysidhi/excel-dcom-base:latest
