@@ -14,4 +14,4 @@ RUN powershell -ExecutionPolicy Bypass -File .\install_office.ps1
 RUN powershell -ExecutionPolicy Bypass -File .\ConfigureDCOM.ps1
 
 # 4. Final Cleanup
-RUN powershell -Command Remove-Item -Recurse -Force ./OfficeInstall, ./install_office.ps1, ./ConfigureDCOM.ps1
+RUN powershell -Command Remove-Item -Recurse -Force ./OfficeInstall, ./install_office.ps1, ./ConfigureDCOM.ps1, ./silent_config.xml
