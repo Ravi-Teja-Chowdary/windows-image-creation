@@ -2,38 +2,16 @@ FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
 WORKDIR /install
 
-# Copy installation files
+# 1. Copy everything needed
 COPY ./MSOffice ./OfficeInstall
 COPY ConfigureDCOM.ps1 .
+COPY install_office.ps1 .
 
-# Switch to PowerShell
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+# 2. Run the Installation script
+RUN powershell -ExecutionPolicy Bypass -File .\install_office.ps1
 
-# Every line below MUST end with a backtick (`) to stay part of the RUN command
-RUN Write-Output '--- STAGE: CONFIGURING XML ---'; `
-    $xml = '<Configuration><Display Level="none" CompletionNotice="no" SuppressModal="yes" AcceptEula="yes" /></Configuration>'; `
-    $xml | Out-File -FilePath .\silent_config.xml -Encoding utf8; `
-    Write-Output '--- STAGE: STARTING INSTALLATION ---'; `
-    $logPath = 'C:\install\office_log.txt'; `
-    $proc = Start-Process -FilePath .\OfficeInstall\setup.exe `
-        -ArgumentList '/config .\silent_config.xml', '/log', $logPath `
-        -PassThru; `
-    $timeout = 1200; $timer = 0; `
-    while (!$proc.HasExited -and $timer -lt $timeout) { `
-        Start-Sleep -Seconds 30; $timer += 30; `
-        Write-Warning "Installation in progress... ($timer seconds elapsed)"; `
-    } `
-    if (!$proc.HasExited) { `
-        Write-Error 'ERROR: Installation timed out. Log Contents:'; `
-        if (Test-Path $logPath) { Get-Content $logPath | ForEach-Object { Write-Error $_ } } `
-        Stop-Process -Id $proc.Id -Force; `
-        exit 1; `
-    } `
-    Write-Output "Finished with Exit Code: $($proc.ExitCode)"; `
-    if ($proc.ExitCode -ne 0) { `
-        if (Test-Path $logPath) { Get-Content $logPath | ForEach-Object { Write-Error $_ } } `
-        exit 1; `
-    }
+# 3. Run the DCOM Configuration script
+RUN powershell -ExecutionPolicy Bypass -File .\ConfigureDCOM.ps1
 
-# Cleanup
-RUN Remove-Item -Recurse -Force ./OfficeInstall, ./silent_config.xml
+# 4. Final Cleanup
+RUN powershell -Command Remove-Item -Recurse -Force ./OfficeInstall, ./install_office.ps1, ./ConfigureDCOM.ps1
