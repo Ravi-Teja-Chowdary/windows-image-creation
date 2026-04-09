@@ -11,7 +11,7 @@ jobs:
       - name: Reclaim Disk Space
         shell: powershell
         run: |
-          Write-Host "Clearing space for Docker layers..."
+          Write-Host "Clearing space..."
           Remove-Item -Recurse -Force "C:\Microsoft\AndroidSDK" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\usr\local\share\boost" -ErrorAction SilentlyContinue
 
@@ -26,10 +26,9 @@ jobs:
       - name: Switch to Windows Containers
         shell: powershell
         run: |
-          $dockerMode = docker info -f '{{.OSType}}'
-          if ($dockerMode -ne "windows") {
-            & "C:\Program Files\Docker\Docker\DockerCli.exe" -SwitchWindowsEngine
-          }
+          $dockerPath = "C:\Program Files\Docker\Docker\DockerCli.exe"
+          if (Test-Path $dockerPath) { & $dockerPath -SwitchWindowsEngine }
+          docker info -f 'OSType: {{.OSType}}'
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -40,6 +39,6 @@ jobs:
       - name: Build and Push
         shell: powershell
         run: |
-          # --progress=plain is CRITICAL to see the logs from inside the Dockerfile
-          docker build --progress=plain -t ravitejachowdarysidhi/excel-dcom-base:latest .
+          # Standard build command without the BuildKit-specific flag
+          docker build -t ravitejachowdarysidhi/excel-dcom-base:latest .
           docker push ravitejachowdarysidhi/excel-dcom-base:latest
