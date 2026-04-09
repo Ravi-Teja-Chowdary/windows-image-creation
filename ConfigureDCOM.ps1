@@ -1,11 +1,18 @@
 # 1. Create User
 $Password = ConvertTo-SecureString "Sidhi@1232026" -AsPlainText -Force
-New-LocalUser -Name "sidhi" -Password $Password -Description "Excel User"
-Add-LocalGroupMember -Group "Administrators" -Member "sidhi"
+if (-not (Get-LocalUser -Name "sidhi" -ErrorAction SilentlyContinue)) {
+    New-LocalUser -Name "sidhi" -Password $Password -Description "Excel User"
+    Add-LocalGroupMember -Group "Administrators" -Member "sidhi"
+}
 
-# 2. Excel 2013 AppID
+# 2. Excel AppID (Standard for Excel 2013/2016+)
 $AppID = "{00020812-0000-0000-C000-000000000046}"
 $RegPath = "HKLM:\SOFTWARE\Classes\AppID\$AppID"
+
+# Ensure the Registry Key exists before writing
+if (-not (Test-Path $RegPath)) {
+    New-Item -Path $RegPath -Force
+}
 
 # 3. Set Identity to 'sidhi'
 Set-ItemProperty -Path $RegPath -Name "RunAs" -Value "sidhi"
@@ -17,6 +24,10 @@ $Access = [byte[]](0x01,0x00,0x04,0x80,0x34,0x00,0x00,0x00,0x44,0x00,0x00,0x00,0
 Set-ItemProperty -Path $RegPath -Name "LaunchPermission" -Value $Launch
 Set-ItemProperty -Path $RegPath -Name "AccessPermission" -Value $Access
 
-# 5. Create Desktop Folders (Fixes the "Service Error" in Excel)
-New-Item -Path "C:\Windows\System32\config\systemprofile\Desktop" -ItemType Directory -Force
-New-Item -Path "C:\Windows\SysWOW64\config\systemprofile\Desktop" -ItemType Directory -Force
+# 5. Create Desktop Folders (Crucial for DCOM Excel Automation)
+$paths = @("C:\Windows\System32\config\systemprofile\Desktop", "C:\Windows\SysWOW64\config\systemprofile\Desktop")
+foreach ($p in $paths) {
+    if (-not (Test-Path $p)) {
+        New-Item -Path $p -ItemType Directory -Force
+    }
+}
