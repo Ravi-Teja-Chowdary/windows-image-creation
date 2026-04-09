@@ -20,6 +20,7 @@ jobs:
         run: |
           $url = "https://msoffice-bucket.s3.us-east-1.amazonaws.com/MSOffice.zip"
           Invoke-WebRequest -Uri $url -OutFile "MSOffice.zip"
+          # Ensure extraction folder matches Dockerfile COPY source
           Expand-Archive -Path "MSOffice.zip" -DestinationPath "./MSOffice"
           Remove-Item "MSOffice.zip"
 
@@ -39,6 +40,7 @@ jobs:
       - name: Build and Push
         shell: powershell
         run: |
-          # Standard build command without the BuildKit-specific flag
+          # Standard build
           docker build -t ravitejachowdarysidhi/excel-dcom-base:latest .
+          # Only pushes if the build step above succeeds
           docker push ravitejachowdarysidhi/excel-dcom-base:latest
