@@ -1,49 +1,29 @@
-$ErrorActionPreference = 'Stop'
-Write-Output '--- STAGE: CONFIGURING XML ---'
-# Legacy Bootstrapper XML format
-$xml = @"
+$configPath = "C:\install\configuration.xml"
+
+Write-Host "--- STAGE: CREATING ODT CONFIG ---"
+# This XML is specifically designed for the Office Deployment Tool
+$xmlContent = @"
 <Configuration>
-    <Display Level="none" CompletionNotice="no" SuppressModal="yes" AcceptEula="yes" />
-    <Setting Id="SETUP_REBOOT" Value="Never" />
-    <OptionState Id="GWW_Common" State="Local" Children="force" />
+  <Add SourcePath="C:\install\OfficeInstall" OfficeClientEdition="64">
+    <Product ID="O365ProPlusRetail">
+      <Language ID="en-us" />
+    </Product>
+  </Add>
+  <Display Level="None" AcceptEULA="TRUE" />
+  <Property Name="AUTOACTIVATE" Value="1" />
+  <Property Name="FORCEAPPSHUTDOWN" Value="TRUE" />
+  <Property Name="SharedComputerLicensing" Value="1" />
 </Configuration>
 "@
-$xml | Out-File -FilePath .\silent_config.xml -Encoding utf8
+$xmlContent | Out-File -FilePath $configPath -Encoding utf8
 
-Write-Output '--- STAGE: STARTING INSTALLATION ---'
-$logPath = 'C:\install\office_log.txt'
+Write-Host "--- STAGE: STARTING ODT INSTALLATION ---"
+# Note: Using /configure instead of /config
+$process = Start-Process -FilePath ".\OfficeInstall\setup.exe" -ArgumentList "/configure `"$configPath`"" -PassThru -NoNewWindow -Wait
 
-# For 'Bootstrapper', we use /config. 
-# We also use 'Start-Process' but we will manually poll the log file.
-$proc = Start-Process -FilePath .\OfficeInstall\setup.exe `
-    -ArgumentList "/config .\silent_config.xml" `
-    -PassThru
-
-$timeout = 1800; $timer = 0
-Write-Output "Watching log file for activity..."
-
-while (!$proc.HasExited -and $timer -lt $timeout) {
-    Start-Sleep -Seconds 30; $timer += 30
-    
-    # Try to read the log file WHILE it is installing to see the real-time error
-    if (Test-Path $logPath) {
-        $lastLine = Get-Content $logPath -Tail 1
-        Write-Warning "[$timer s] Current Log: $lastLine"
-    } else {
-        Write-Warning "[$timer s] Installation in progress... (Log file not created yet)"
-    }
-}
-
-if (!$proc.HasExited) {
-    Write-Error "!! TIMEOUT !! Setup is stuck. Final 20 lines of log:"
-    if (Test-Path $logPath) { Get-Content $logPath -Tail 20 | Write-Host }
-    Stop-Process -Id $proc.Id -Force
+if ($process.ExitCode -ne 0) {
+    Write-Host "--- ERROR: Setup failed with exit code $($process.ExitCode) ---"
     exit 1
 }
 
-Write-Output "Finished with Exit Code: $($proc.ExitCode)"
-if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne 3010) {
-    Write-Error "Setup failed. Checking logs..."
-    if (Test-Path $logPath) { Get-Content $logPath -Tail 50 | Write-Host }
-    exit 1
-}
+Write-Host "--- SUCCESS: Office Installed ---"
