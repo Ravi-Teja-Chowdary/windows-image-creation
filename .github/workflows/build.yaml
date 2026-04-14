@@ -8,28 +8,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Reclaim Disk Space
-        shell: powershell
-        run: |
-          Write-Host "Clearing space..."
-          Remove-Item -Recurse -Force "C:\Microsoft\AndroidSDK" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\usr\local\share\boost" -ErrorAction SilentlyContinue
-
       - name: Download Office Files
         shell: powershell
         run: |
           $url = "https://msoffice-bucket.s3.us-east-1.amazonaws.com/MSOffice.zip"
           Invoke-WebRequest -Uri $url -OutFile "MSOffice.zip"
-          # Ensure extraction folder matches Dockerfile COPY source
-          Expand-Archive -Path "MSOffice.zip" -DestinationPath "./MSOffice"
-          Remove-Item "MSOffice.zip"
-
-      - name: Switch to Windows Containers
-        shell: powershell
-        run: |
-          $dockerPath = "C:\Program Files\Docker\Docker\DockerCli.exe"
-          if (Test-Path $dockerPath) { & $dockerPath -SwitchWindowsEngine }
-          docker info -f 'OSType: {{.OSType}}'
+          Expand-Archive -Path "MSOffice.zip" -DestinationPath "."
+          # Ensure the folder is named MSOffice for the Docker COPY command
+          if (Test-Path "./MSOffice.zip") { Remove-Item "./MSOffice.zip" }
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -37,10 +23,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push
+      - name: Build and Push Image
         shell: powershell
         run: |
-          # Standard build
-          docker build -t ravitejachowdarysidhi/excel-dcom-base:latest .
-          # Only pushes if the build step above succeeds
-          docker push ravitejachowdarysidhi/excel-dcom-base:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/excel-dcom-base:latest .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/excel-dcom-base:latest
