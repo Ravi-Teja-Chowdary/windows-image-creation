@@ -2,10 +2,9 @@ FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
 WORKDIR /install
 
-# 1. Install necessary features for Office DCOM and Setup
+# 1. Prepare Environment - Combined into one RUN block
 RUN powershell -Command \
     Install-WindowsFeature Net-Framework-45-Core; \
-    Install-WindowsFeature Web-WebServer; `
     Set-ExecutionPolicy Bypass -Scope Process -Force
 
 # 2. Copy installation files
@@ -13,8 +12,7 @@ COPY ./MSOffice ./OfficeInstall
 COPY ConfigureDCOM.ps1 .
 COPY install_office.ps1 .
 
-# 3. Run the installation
-# We increase the priority of the process to ensure it gets enough CPU cycles
+# 3. Run the installation script
 RUN powershell -NoProfile -ExecutionPolicy Bypass -File .\install_office.ps1
 
 # 4. Run DCOM Configuration
