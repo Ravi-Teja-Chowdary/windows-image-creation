@@ -8,14 +8,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Download Office Files
+      - name: Download and Prepare Office Files
         shell: powershell
         run: |
           $url = "https://msoffice-bucket.s3.us-east-1.amazonaws.com/MSOffice.zip"
+          Write-Host "Downloading Office..."
           Invoke-WebRequest -Uri $url -OutFile "MSOffice.zip"
-          Expand-Archive -Path "MSOffice.zip" -DestinationPath "."
-          # Ensure the folder is named MSOffice for the Docker COPY command
-          if (Test-Path "./MSOffice.zip") { Remove-Item "./MSOffice.zip" }
+          
+          Write-Host "Unzipping..."
+          # Create a clean target directory
+          New-Item -ItemType Directory -Force -Path "./MSOffice"
+          Expand-Archive -Path "MSOffice.zip" -DestinationPath "./MSOffice_Temp"
+          
+          # Move contents to ensure the folder structure is flat (./MSOffice/setup.exe)
+          # This handles cases where the zip has a subfolder inside it
+          $subFolder = Get-ChildItem "./MSOffice_Temp" | Where-Object { $_.Attributes -eq 'Directory' }
+          if ($subFolder) {
+              Move-Item -Path "$($subFolder.FullName)\*" -Destination "./MSOffice" -Force
+          } else {
+              Move-Item -Path "./MSOffice_Temp\*" -Destination "./MSOffice" -Force
+          }
+          
+          # Verify file existence for the logs
+          if (Test-Path "./MSOffice/setup.exe") {
+              Write-Host "Verified: ./MSOffice/setup.exe exists."
+          } else {
+              Write-Error "Could not find setup.exe in unzipped contents!"
+              ls -Recurse ./MSOffice
+              exit 1
+          }
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
